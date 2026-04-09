@@ -11,7 +11,6 @@ type repository struct {
 }
 
 func NewRepository(db *gorm.DB) Repository {
-	db.AutoMigrate(&User{})
 	return &repository{db: db}
 }
 

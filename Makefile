@@ -25,3 +25,12 @@ clean:
 install:
 	go mod download
 	go mod tidy
+
+migrate:
+	go run cmd/migrate/main.go
+
+# Module Generator
+# Usage: make generate-module NAME=order
+generate-module:
+	@chmod +x scripts/genmodule.sh
+	@./scripts/genmodule.sh $(NAME)
