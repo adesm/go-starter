@@ -1,69 +1,46 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-type visitor struct {
-	lastSeen time.Time
-	count    int
-}
-
-var (
-	visitors = make(map[string]*visitor)
-	mu       sync.RWMutex
-)
-
-func RateLimiter() gin.HandlerFunc {
-	go cleanupVisitors()
-
+func RateLimiter(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
-
-		mu.Lock()
-		v, exists := visitors[ip]
-		if !exists {
-			visitors[ip] = &visitor{lastSeen: time.Now(), count: 1}
-			mu.Unlock()
+		key := fmt.Sprintf("rate_limit:%s", ip)
+		
+		ctx := c.Request.Context()
+		
+		// Fixed Window Algorithm
+		// Increment the counter for this IP
+		count, err := rdb.Incr(ctx, key).Result()
+		if err != nil {
+			// If Redis is down, we might want to log it and let the request pass 
+			// or fail closed. Here we fail open but log.
 			c.Next()
 			return
 		}
 
-		if time.Since(v.lastSeen) > time.Minute {
-			v.count = 1
-			v.lastSeen = time.Now()
-			mu.Unlock()
-			c.Next()
-			return
+		// If this is the first request in the window, set expiration
+		if count == 1 {
+			rdb.Expire(ctx, key, time.Minute)
 		}
 
-		if v.count >= 100 {
-			mu.Unlock()
-			c.JSON(http.StatusTooManyRequests, gin.H{"success": false, "error": "Rate limit exceeded"})
+		// Limit to 100 requests per minute
+		if count > 100 {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false, 
+				"error": "Rate limit exceeded. Please try again in a minute.",
+			})
 			c.Abort()
 			return
 		}
 
-		v.count++
-		v.lastSeen = time.Now()
-		mu.Unlock()
 		c.Next()
-	}
-}
-
-func cleanupVisitors() {
-	for {
-		time.Sleep(5 * time.Minute)
-		mu.Lock()
-		for ip, v := range visitors {
-			if time.Since(v.lastSeen) > 10*time.Minute {
-				delete(visitors, ip)
-			}
-		}
-		mu.Unlock()
 	}
 }

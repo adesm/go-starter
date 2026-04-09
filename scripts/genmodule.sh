@@ -283,7 +283,7 @@ import (
 func RegisterRoutes(router *gin.RouterGroup, handler *Handler, cfg *config.Config) {
 	${PKG_NAME} := router.Group("/$PKG_NAME")
 	{
-		${PKG_NAME}.POST("", middleware.Auth(cfg.JWT.Secret), handler.Create)
+		${PKG_NAME}.POST("", middleware.AuthMiddleware(cfg), handler.Create)
 		${PKG_NAME}.GET("/:id", handler.GetByID)
 		${PKG_NAME}.GET("", handler.List)
 		// Add PUT and DELETE routes

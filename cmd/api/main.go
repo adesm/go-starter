@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"boilerplate/internal/config"
 	"boilerplate/internal/middleware"
+	"boilerplate/internal/shared/database"
 	"boilerplate/internal/module/user"
 )
 
@@ -37,17 +39,27 @@ func main() {
 		slog.SetDefault(slog.New(devHandler))
 	}
 
+	// Setup Database
 	db, err := setupDatabase(cfg)
 	if err != nil {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
 	}
 
+	// Setup Redis (Keep it for Distributed Rate Limiting)
+	rdb, err := database.NewRedisClient(cfg)
+	if err != nil {
+		slog.Error("Failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer rdb.Close()
+
 	if cfg.App.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := setupRouter(cfg, db)
+	// Setup Router (Passing rdb for Rate Limiting)
+	router := setupRouter(cfg, db, rdb)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.App.Port),
@@ -112,19 +124,19 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-func setupRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
+func setupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(middleware.Logger())
 	router.Use(middleware.CORS())
-	router.Use(middleware.RateLimiter())
+	router.Use(middleware.RateLimiter(rdb)) // Keeping Distributed Rate Limiting
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	api := router.Group("/api/v1")
-	user.InitModule(api, db, cfg)
+	user.InitModule(api, db, cfg) // Reverted to original
 
 	return router
 }

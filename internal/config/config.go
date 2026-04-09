@@ -9,6 +9,7 @@ import (
 type Config struct {
 	App      AppConfig      `mapstructure:"app"`
 	Database DatabaseConfig `mapstructure:"database"`
+	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 }
 
@@ -25,6 +26,12 @@ type DatabaseConfig struct {
 	Password string `mapstructure:"password"`
 	Name     string `mapstructure:"name"`
 	SSLMode  string `mapstructure:"sslmode"`
+}
+
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	Password string `mapstructure:"password"`
 }
 
 type JWTConfig struct {
@@ -48,6 +55,9 @@ func Load() *Config {
 	viper.SetDefault("DB_PASSWORD", "postgres")
 	viper.SetDefault("DB_NAME", "boilerplate")
 	viper.SetDefault("DB_SSLMODE", "disable")
+	viper.SetDefault("REDIS_HOST", "localhost")
+	viper.SetDefault("REDIS_PORT", "6379")
+	viper.SetDefault("REDIS_PASSWORD", "")
 	viper.SetDefault("JWT_SECRET", "your-secret-key")
 	viper.SetDefault("JWT_EXPIRE_TIME", 24)
 
@@ -60,8 +70,6 @@ func Load() *Config {
 
 	var cfg Config
 	
-	// Viper mapstructure mapping with env variables requires some mapping logic
-	// Or we can manually map them for standard env vars like DB_HOST -> Database.Host
 	cfg.App.Name = viper.GetString("APP_NAME")
 	cfg.App.Environment = viper.GetString("APP_ENV")
 	cfg.App.Port = viper.GetString("APP_PORT")
@@ -72,6 +80,10 @@ func Load() *Config {
 	cfg.Database.Password = viper.GetString("DB_PASSWORD")
 	cfg.Database.Name = viper.GetString("DB_NAME")
 	cfg.Database.SSLMode = viper.GetString("DB_SSLMODE")
+
+	cfg.Redis.Host = viper.GetString("REDIS_HOST")
+	cfg.Redis.Port = viper.GetString("REDIS_PORT")
+	cfg.Redis.Password = viper.GetString("REDIS_PASSWORD")
 	
 	cfg.JWT.Secret = viper.GetString("JWT_SECRET")
 	cfg.JWT.ExpireTime = viper.GetInt("JWT_EXPIRE_TIME")
