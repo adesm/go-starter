@@ -29,11 +29,12 @@ cat > "$MODULE_DIR/dto.go" <<EOF
 package $PKG_NAME
 
 type Create${STRUCT_NAME}Request struct {
-	// Add fields
+	// Add fields with binding:"required" for validation
+    // Example: Name string \`json:"name" binding:"required"\`
 }
 
 type Update${STRUCT_NAME}Request struct {
-	// Add fields
+	// Add fields with binding:"required" for validation
 }
 
 type ${STRUCT_NAME}Response struct {
@@ -215,6 +216,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"boilerplate/internal/shared/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -229,28 +231,28 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req Create${STRUCT_NAME}Request
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.ValidationError(c, err)
 		return
 	}
 
 	item, err := h.service.Create(c.Request.Context(), &req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.JSONError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, item)
+	c.JSON(http.StatusCreated, response.SuccessWithData(item))
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	item, err := h.service.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		response.JSONError(c, http.StatusNotFound, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, item)
+	c.JSON(http.StatusOK, response.SuccessWithData(item))
 }
 
 func (h *Handler) List(c *gin.Context) {
@@ -259,11 +261,11 @@ func (h *Handler) List(c *gin.Context) {
 
 	items, err := h.service.List(c.Request.Context(), page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.JSONError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, items)
+	c.JSON(http.StatusOK, response.SuccessWithData(items))
 }
 
 // Add Update and Delete methods...
@@ -281,7 +283,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.RouterGroup, handler *Handler, cfg *config.Config) {
-	${PKG_NAME} := router.Group("/$PKG_NAME")
+	${PKG_NAME} := router.Group("/${PKG_NAME}s")
 	{
 		${PKG_NAME}.POST("", middleware.AuthMiddleware(cfg), handler.Create)
 		${PKG_NAME}.GET("/:id", handler.GetByID)

@@ -8,7 +8,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.RouterGroup, handler *Handler, cfg *config.Config) {
-	order := router.Group("/order")
+	order := router.Group("/orders")
 	{
 		order.POST("", middleware.AuthMiddleware(cfg), handler.Create)
 		order.GET("/:id", handler.GetByID)

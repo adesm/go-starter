@@ -18,8 +18,9 @@ import (
 
 	"boilerplate/internal/config"
 	"boilerplate/internal/middleware"
-	"boilerplate/internal/shared/database"
+	"boilerplate/internal/module/order"
 	"boilerplate/internal/module/user"
+	"boilerplate/internal/shared/database"
 )
 
 func main() {
@@ -126,17 +127,21 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 
 func setupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine {
 	router := gin.New()
-	router.Use(gin.Recovery())
+
+	// Enterprise Recovery (Prevents leakage, logs deep trace)
+	router.Use(middleware.Recovery())
+
 	router.Use(middleware.Logger())
 	router.Use(middleware.CORS())
-	router.Use(middleware.RateLimiter(rdb)) // Keeping Distributed Rate Limiting
+	router.Use(middleware.RateLimiter(rdb))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
 	api := router.Group("/api/v1")
-	user.InitModule(api, db, cfg) // Reverted to original
+	user.InitModule(api, db, cfg)
+	order.InitModule(api, db, cfg)
 
 	return router
 }
