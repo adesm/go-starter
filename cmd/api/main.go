@@ -18,7 +18,6 @@ import (
 
 	"boilerplate/internal/config"
 	"boilerplate/internal/middleware"
-	"boilerplate/internal/module/order"
 	"boilerplate/internal/module/user"
 	"boilerplate/internal/shared/database"
 )
@@ -141,7 +140,6 @@ func setupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 
 	api := router.Group("/api/v1")
 	user.InitModule(api, db, cfg)
-	order.InitModule(api, db, cfg)
 
 	return router
 }
